@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Git & GitHub Trainer — Повний курс</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --cyan: #39c5cf;
+      --yellow: #d29922;
+      --orange: #f0883e;
+      --blue: #58a6ff;
+      --purple: #a371f7;
+      --red: #f85149;
+      --prompt: #f0883e;
+      --font: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: radial-gradient(1200px 600px at 90% -10%, #2d1f14 0%, var(--bg) 55%);
+      color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    header { margin-bottom: 16px; }
+    header h1 { font-size: 1.25rem; margin: 0 0 6px; font-weight: 600; }
+    header p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+    .layout { display: grid; grid-template-columns: 280px 1fr; gap: 14px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .sidebar { order: 2; } }
+    .sidebar, .terminal-wrap {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .sidebar { padding: 14px; font-size: 0.82rem; }
+    .sidebar h2 {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin: 0 0 10px;
+    }
+    .cmd-list { list-style: none; padding: 0; margin: 0 0 16px; }
+    .cmd-list li {
+      padding: 6px 8px; border-radius: 6px; cursor: pointer;
+      font-family: var(--font); font-size: 0.78rem;
+    }
+    .cmd-list li:hover { background: #21262d; }
+    .cmd-list li.done { color: var(--green); }
+    .cmd-list li.done::after { content: " ✓"; }
+    .cmd-list code { color: var(--cyan); word-break: break-all; }
+    .progress { height: 6px; background: #21262d; border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+    .progress > div {
+      height: 100%;
+      background: linear-gradient(90deg, var(--orange), var(--yellow));
+      width: 0%; transition: width 0.3s;
+    }
+    .stats { color: var(--muted); font-size: 0.78rem; }
+    .hint-box {
+      background: #21262d; border-radius: 8px; padding: 10px;
+      color: var(--muted); line-height: 1.45; font-size: 0.78rem;
+    }
+    .module-badge {
+      display: inline-block; background: #21262d; border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 8px; font-size: 0.78rem;
+      color: var(--orange); margin-bottom: 10px; font-family: var(--font);
+    }
+    .module-nav { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .module-nav button { text-align: left; font-family: var(--font); font-size: 0.72rem; }
+    .module-nav button.active { border-color: var(--orange); color: var(--orange); }
+    .terminal-wrap { display: flex; flex-direction: column; height: 540px; }
+    .term-bar {
+      display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border); font-size: 0.78rem; color: var(--muted);
+    }
+    .dots { display: flex; gap: 6px; }
+    .dots span { width: 10px; height: 10px; border-radius: 50%; }
+    .dots span:nth-child(1) { background: #ff5f57; }
+    .dots span:nth-child(2) { background: #febc2e; }
+    .dots span:nth-child(3) { background: #28c840; }
+    .term-title { flex: 1; text-align: center; font-family: var(--font); }
+    .output {
+      flex: 1; display: flex; flex-direction: column; padding: 16px;
+      min-height: 0; overflow: hidden; font-family: var(--font);
+      font-size: 0.84rem; line-height: 1.55;
+    }
+    .output-status {
+      flex-shrink: 0; color: var(--muted); font-size: 0.75rem;
+      padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+    }
+    .live-panel { flex: 1; min-height: 0; overflow-y: auto; word-break: break-word; }
+    .line-user { color: var(--prompt); }
+    .line-sys { color: var(--text); }
+    .line-muted { color: var(--muted); }
+    .line-ok { color: var(--green); }
+    .line-warn { color: var(--yellow); }
+    .line-err { color: var(--red); }
+    .line-cmd { color: var(--cyan); }
+    .line-hl { color: var(--blue); }
+    .line-uk-hint {
+      color: #e6c87a; font-size: 0.82rem; margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid rgba(230, 200, 122, 0.25); line-height: 1.5;
+    }
+    .line-uk-hint.compact {
+      margin-top: 2px; margin-bottom: 8px; padding-top: 0;
+      border-top: none; padding-left: 14px;
+    }
+    .result-box {
+      margin: 8px 0 12px; padding: 12px 14px; border-radius: 8px;
+      border: 1px solid #bd561d; background: rgba(240, 136, 62, 0.1);
+      border-left: 4px solid var(--orange);
+    }
+    .result-box.warn {
+      border-color: var(--yellow); background: rgba(210, 153, 34, 0.1);
+      border-left-color: var(--yellow);
+    }
+    .result-box.purple {
+      border-color: var(--purple); background: rgba(163, 113, 247, 0.1);
+      border-left-color: var(--purple);
+    }
+    .result-title { color: var(--orange); font-weight: 600; margin-bottom: 8px; font-size: 0.82rem; }
+    .result-box.warn .result-title { color: var(--yellow); }
+    .result-box.purple .result-title { color: var(--purple); }
+    .input-row {
+      display: flex; align-items: center; gap: 8px; padding: 12px 14px;
+      border-top: 1px solid var(--border); background: #0d1117;
+    }
+    .prompt-label { color: var(--prompt); font-family: var(--font); font-size: 0.9rem; white-space: nowrap; }
+    #cmdInput {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--text); font-family: var(--font); font-size: 0.9rem;
+    }
+    .btn {
+      background: #21262d; border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; cursor: pointer;
+    }
+    .btn:hover { background: #30363d; }
+    .btn-primary { background: #bd561d; border-color: var(--orange); }
+    .btn-primary:hover { background: var(--orange); color: #0d1117; }
+    .btn-test {
+      background: rgba(210, 153, 34, 0.15); border-color: var(--yellow); color: #e6c87a;
+    }
+    .btn-test:hover { background: rgba(210, 153, 34, 0.28); }
+    .btn-test.active { background: var(--yellow); color: #0d1117; border-color: var(--yellow); }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    kbd {
+      background: #21262d; border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 5px; font-family: var(--font); font-size: 0.75rem;
+    }
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      align-items: center; justify-content: center; z-index: 10; padding: 20px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+      max-width: 520px; width: 100%; padding: 18px; max-height: 80vh; overflow-y: auto;
+    }
+    .modal h3 { margin: 0 0 12px; font-size: 1rem; }
+    .scenario-item {
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+      margin-bottom: 8px; cursor: pointer; font-family: var(--font); font-size: 0.82rem;
+    }
+    .scenario-item:hover, .scenario-item.selected {
+      border-color: var(--orange); background: #1c2128;
+    }
+    .scenario-item small { color: var(--muted); display: block; margin-top: 4px; }
+    .test-question { color: #e6c87a; line-height: 1.6; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Git & GitHub Trainer</h1>
+      <p>
+        Тренажер на основі курсу
+        <a href="https://youtu.be/9CnZihyYjjA" target="_blank" rel="noopener">«Повний курс по Git та GitHub»</a>
+        (Nikita Tymoshenko). Емуляція Git Bash + українські підказки + режим тестування.
+        <kbd>↑</kbd>/<kbd>↓</kbd> — історія, <kbd>Tab</kbd> — автодоповнення.
+      </p>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="module-badge" id="moduleBadge">Git Bash — основи</div>
+        <h2>Прогрес розділу</h2>
+        <div class="progress"><div id="progressBar"></div></div>
+        <div class="stats" id="progressText">0 / 0</div>
+        <h2>Розділи курсу</h2>
+        <div class="module-nav" id="moduleNav"></div>
+        <h2>Команди розділу</h2>
+        <ul class="cmd-list" id="cmdChecklist"></ul>
+        <div class="hint-box">
+          <strong>Завдання:</strong> виконай усі команди розділу.<br><br>
+          <strong>Сценарії:</strong> кнопка «Обрати сценарій»<br>
+          <strong>Тест:</strong> «Режим тестування» — питання випадковим порядком
+        </div>
+        <div class="actions">
+          <button class="btn btn-test" id="btnTest" type="button">Режим тестування</button>
+          <button class="btn btn-primary" id="btnScenario" type="button">Обрати сценарій</button>
+          <button class="btn" id="btnReset">Скинути репо</button>
+        </div>
+      </aside>
+
+      <section class="terminal-wrap">
+        <div class="term-bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <div class="term-title" id="termTitle">MINGW64 ~/demo-project (main)</div>
+        </div>
+        <div class="output" aria-live="polite">
+          <div class="output-status" id="outputStatus">$ · Git Bash емулятор</div>
+          <div class="live-panel" id="livePanel"></div>
+        </div>
+        <form class="input-row" id="cmdForm" autocomplete="off">
+          <span class="prompt-label">$</span>
+          <input id="cmdInput" type="text" spellcheck="false" placeholder="git status, ls, pwd …" autofocus />
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="scenarioModal">
+    <div class="modal">
+      <h3>Обрати сценарій / розділ курсу</h3>
+      <div id="scenarioList"></div>
+      <div class="actions" style="margin-top:14px;">
+        <button class="btn btn-primary" id="scenarioConfirm">Enter — перейти</button>
+        <button class="btn" id="scenarioCancel">Esc — скасувати</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const UK_HINTS = {
+      "ls": "Показує список файлів і папок у поточній директорії.",
+      "pwd": "Виводить повний шлях до поточної робочої папки (print working directory).",
+      "cd": "Змінює поточну директорію — перехід між папками.",
+      "mkdir": "Створює нову папку в поточній директорії.",
+      "touch": "Створює порожній файл або оновлює час модифікації.",
+      "clear": "Очищує екран терміналу від попереднього виводу.",
+      "cp": "Копіює файл або папку з одного місця в інше.",
+      "rm": "Видаляє файл. rm -r — рекурсивно видаляє папку.",
+      "grep": "Шукає текстовий шаблон у файлах (напр. помилки в логах).",
+      "git --version": "Перевіряє, чи встановлений Git і яка версія.",
+      "git config --global user.name \"User\"": "Встановлює глобальне ім'я автора комітів (обов'язково для commit).",
+      "git config --global user.email \"user@email.com\"": "Встановлює email автора комітів (обов'язково для commit).",
+      "git config --list": "Показує всі налаштування Git, включно з user.name та user.email.",
+      "git init": "Ініціалізує новий локальний Git-репозиторій у поточній папці.",
+      "git init --initial-branch=main": "Створює репозиторій одразу з гілкою main (сучасний стандарт).",
+      "git status": "Показує стан робочого дерева: змінені, staged та невідстежувані файли.",
+      "git --help": "Довідка Git — список команд і короткі описи.",
+      "git add file.txt": "Додає конкретний файл у staging area (індекс) перед комітом.",
+      "git add .": "Додає всі змінені файли в staging area одразу.",
+      "git commit -m \"message\"": "Фіксує staged-зміни в новий коміт з повідомленням.",
+      "git log": "Показує повну історію комітів поточної гілки.",
+      "git log --oneline": "Компактна історія — один рядок на коміт (hash + message).",
+      "git diff": "Показує незакомічені зміни у файлах (working tree vs index).",
+      "git diff --cached": "Показує зміни, які вже в staging area (готові до commit).",
+      "git commit --amend --no-edit": "Редагує останній коміт — додає staged-зміни без зміни повідомлення.",
+      "git restore --staged file.txt": "Прибирає файл з staging area, залишаючи зміни на диску.",
+      "git restore file.txt": "Скасовує незакомічені зміни у файлі — повертає до останнього commit.",
+      "git restore .": "Скасовує всі незакомічені зміни у всіх файлах робочої директорії.",
+      "git rm file.txt": "Видаляє файл з індексу та робочої директорії (для commit).",
+      "git show abc123": "Показує деталі конкретного коміту: автор, дата, diff.",
+      "git reset --hard HEAD": "Скидає робочу директорію до останнього коміту (небезпечно — втрата змін).",
+      "git reset --soft abc123": "Переміщує HEAD на коміт, але залишає зміни в staging.",
+      "git clean -f": "Видаляє невідстежувані файли з робочої директорії (обережно!).",
+      "git branch": "Список локальних гілок; зірочка * — поточна гілка.",
+      "git branch feature": "Створює нову гілку feature, не перемикаючись на неї.",
+      "git checkout feature": "Перемикається на гілку feature (checkout/switch).",
+      "git checkout -b new_branch": "Створює нову гілку і одразу перемикається на неї.",
+      "git merge feature": "Зливає гілку feature у поточну гілку.",
+      "git branch -d feature": "Видаляє гілку feature після успішного merge (-D — примусово).",
+      "git remote -v": "Показує підключені віддалені репозиторії (origin тощо).",
+      "git remote add origin git@github.com:user/repo.git": "Додає віддалений репозиторій з ім'ям origin.",
+      "git push -u origin main": "Відправляє коміти на GitHub і встановлює upstream для main.",
+      "git pull --rebase origin main": "Завантажує зміни з GitHub і перебазовує локальні коміти зверху.",
+      "ssh -T git@github.com": "Перевіряє SSH-з'єднання з GitHub (аутентифікація ключа)."
+    };
+
+    const MODULES = {
+      bash: {
+        id: "bash", title: "Git Bash — основи",
+        termTitle: "MINGW64 ~/demo-project",
+        intro: "Командний рядок: навігація, файли, пошук — основа перед Git.",
+        commands: ["ls", "pwd", "cd", "mkdir", "touch", "clear", "cp", "rm", "grep"]
+      },
+      setup: {
+        id: "setup", title: "Налаштування Git",
+        termTitle: "MINGW64 ~/demo-project (не ініціалізовано)",
+        intro: "Встановлення, git config, git init — підготовка репозиторію.",
+        commands: [
+          "git --version", "git config --global user.name \"User\"",
+          "git config --global user.email \"user@email.com\"",
+          "git config --list", "git init --initial-branch=main", "git status", "git --help"
+        ]
+      },
+      basics: {
+        id: "basics", title: "Базові команди Git",
+        termTitle: "MINGW64 ~/demo-project (main)",
+        intro: "Цикл роботи: status → add → commit → log → diff.",
+        commands: [
+          "git status", "touch", "git add file.txt", "git add .",
+          "git commit -m \"message\"", "git log", "git log --oneline", "git diff"
+        ]
+      },
+      advanced: {
+        id: "advanced", title: "Розширення основ",
+        termTitle: "MINGW64 ~/demo-project (main)",
+        intro: "Amend, staged diff, restore --staged, clean.",
+        commands: [
+          "git diff --cached", "git commit --amend --no-edit",
+          "git restore --staged file.txt", "git clean -f", "git status"
+        ]
+      },
+      restore: {
+        id: "restore", title: "Відновлення версій",
+        termTitle: "MINGW64 ~/demo-project (main)",
+        intro: "restore, rm, show, reset — повернення файлів і проєкту.",
+        commands: [
+          "git restore file.txt", "git restore .", "git rm file.txt",
+          "git show abc123", "git reset --hard HEAD", "git reset --soft abc123"
+        ]
+      },
+      branches: {
+        id: "branches", title: "Гілки (Branches)",
+        termTitle: "MINGW64 ~/demo-project (main)",
+        intro: "branch, checkout, merge — паралельна розробка.",
+        commands: [
+          "git branch", "git branch feature", "git checkout feature",
+          "git checkout -b new_branch", "git merge feature", "git branch -d feature"
+        ]
+      },
+      github: {
+        id: "github", title: "GitHub & Remote",
+        termTitle: "MINGW64 ~/demo-project (main)",
+        intro: "SSH, remote, push, pull — синхронізація з GitHub.",
+        commands: [
+          "ssh -T git@github.com", "git remote -v",
+          "git remote add origin git@github.com:user/repo.git",
+          "git push -u origin main", "git pull --rebase origin main"
+        ]
+      }
+    };
+
+    const SCENARIOS = Object.values(MODULES).map((m, i) => ({
+      id: i + 1, moduleId: m.id, title: m.title,
+      desc: m.intro, commands: m.commands.length
+    }));
+
+    const state = {
+      currentModule: "bash",
+      cwd: "~/demo-project",
+      history: [], histIdx: -1,
+      triedByModule: Object.fromEntries(Object.keys(MODULES).map(k => [k, new Set()])),
+      selectedScenario: SCENARIOS[0],
+      testMode: { active: false, queue: [], index: 0, correct: 0, wrong: 0 },
+      repo: {
+        initialized: false,
+        userName: null, userEmail: null,
+        branch: "main",
+        branches: new Set(["main"]),
+        files: {},
+        staged: new Set(),
+        commits: [],
+        remote: null,
+        sshOk: false
+      }
+    };
+
+    const livePanel = document.getElementById("livePanel");
+    const outputStatus = document.getElementById("outputStatus");
+    const cmdInput = document.getElementById("cmdInput");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
+    const cmdChecklist = document.getElementById("cmdChecklist");
+    const moduleBadge = document.getElementById("moduleBadge");
+    const moduleNav = document.getElementById("moduleNav");
+    const termTitle = document.getElementById("termTitle");
+    let viewChunks = [];
+
+    function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    function getModule() { return MODULES[state.currentModule]; }
+    function getCurrentCommands() { return getModule().commands; }
+    function getTried() { return state.triedByModule[state.currentModule]; }
+
+    function beginView(cmd) {
+      viewChunks = [];
+      if (cmd != null) viewChunks.push(`<div class="line-user">$ ${esc(cmd)}</div>`);
+    }
+    function print(html, cls = "line-sys") { viewChunks.push(`<div class="${cls}">${html}</div>`); }
+    function ukHint(text, compact = false) {
+      const c = compact ? "line-uk-hint compact" : "line-uk-hint";
+      return `<div class="${c}">${esc(text)}</div>`;
+    }
+    function printResult(title, body, type = "ok", hint = null) {
+      const cls = type === "warn" ? "result-box warn" : type === "purple" ? "result-box purple" : "result-box";
+      viewChunks.push(`<div class="${cls}"><div class="result-title">${esc(title)}</div>${body}${hint ? ukHint(hint) : ""}</div>`);
+    }
+    function flushView(status) {
+      livePanel.innerHTML = viewChunks.join("");
+      livePanel.scrollTop = 0;
+      if (status) outputStatus.textContent = status;
+    }
+
+    function shortHash() {
+      return Math.random().toString(16).slice(2, 9);
+    }
+
+    function updateTermTitle() {
+      const r = state.repo;
+      const branch = r.initialized ? ` (${r.branch})` : r.initialized === false && state.currentModule === "setup" ? " (не ініціалізовано)" : "";
+      termTitle.textContent = `MINGW64 ${state.cwd}${r.initialized ? ` (${r.branch})` : state.currentModule === "setup" && !r.initialized ? "" : r.initialized ? ` (${r.branch})` : ""}`;
+      if (!r.initialized && ["bash","setup"].includes(state.currentModule)) {
+        termTitle.textContent = `MINGW64 ${state.cwd}`;
+      } else if (r.initialized) {
+        termTitle.textContent = `MINGW64 ${state.cwd} (${r.branch})`;
+      } else {
+        termTitle.textContent = `MINGW64 ${state.cwd}`;
+      }
+    }
+
+    function normalizeCmd(raw) {
+      const c = raw.trim();
+      const lower = c.toLowerCase();
+      const cur = getCurrentCommands().find(x => x.toLowerCase() === lower);
+      if (cur) return cur;
+      for (const mod of Object.values(MODULES)) {
+        const ex = mod.commands.find(x => x.toLowerCase() === lower);
+        if (ex) return ex;
+      }
+      return c;
+    }
+
+    function isInCurrentModule(cmd) {
+      return getCurrentCommands().some(x => x.toLowerCase() === cmd.trim().toLowerCase());
+    }
+
+    function findModuleForCommand(cmd) {
+      const lower = cmd.trim().toLowerCase();
+      for (const mod of Object.values(MODULES)) {
+        if (mod.commands.some(x => x.toLowerCase() === lower)) return mod.id;
+      }
+      return null;
+    }
+
+    function markTried(cmd) {
+      const norm = normalizeCmd(cmd);
+      if (getCurrentCommands().includes(norm)) {
+        getTried().add(norm);
+        updateProgress();
+        updateModuleNav();
+      }
+    }
+
+    function updateProgress() {
+      const cmds = getCurrentCommands();
+      const n = getTried().size;
+      moduleBadge.textContent = getModule().title;
+      progressBar.style.width = cmds.length ? `${(n / cmds.length) * 100}%` : "0%";
+      progressText.textContent = `${n} / ${cmds.length} команд`;
+      cmdChecklist.querySelectorAll("li").forEach(li => {
+        li.classList.toggle("done", getTried().has(li.dataset.cmd));
+      });
+      updateTermTitle();
+    }
+
+    function updateModuleNav() {
+      const nav = document.getElementById("moduleNav");
+      nav.innerHTML = Object.values(MODULES).map(mod => {
+        const t = state.triedByModule[mod.id];
+        const pct = mod.commands.length ? Math.round((t.size / mod.commands.length) * 100) : 0;
+        const act = mod.id === state.currentModule ? " active" : "";
+        return `<button type="button" class="btn${act}" data-module="${mod.id}">${esc(mod.title)} · ${t.size}/${mod.commands.length} (${pct}%)</button>`;
+      }).join("");
+      nav.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", () => switchModule(btn.dataset.module));
+      });
+    }
+
+    function buildChecklist() {
+      cmdChecklist.innerHTML = getCurrentCommands().map(c =>
+        `<li data-cmd="${esc(c)}" title="Клік — виконати"><code>${esc(c)}</code></li>`
+      ).join("");
+      cmdChecklist.querySelectorAll("li").forEach(li => {
+        li.addEventListener("click", () => { execute(li.dataset.cmd); cmdInput.value = ""; cmdInput.focus(); });
+      });
+      updateProgress();
+      updateModuleNav();
+    }
+
+    function switchModule(id, showWelcome = true) {
+      if (!MODULES[id]) return;
+      state.currentModule = id;
+      buildChecklist();
+      if (!showWelcome) return;
+      beginView(null);
+      const m = getModule();
+      printResult(`Розділ: ${m.title}`, `
+        <span class="line-muted">${esc(m.intro)}</span><br>
+        <span class="line-hl">Команд:</span> ${m.commands.length}
+      `, "purple", "Ти в новому розділі курсу. Список команд зліва оновився.");
+      flushView(`$ · ${m.title}`);
+    }
+
+    function resetRepo() {
+      state.repo = {
+        initialized: false, userName: null, userEmail: null,
+        branch: "main", branches: new Set(["main"]),
+        files: {}, staged: new Set(), commits: [], remote: null, sshOk: false
+      };
+    }
+
+    function welcome() {
+      beginView(null);
+      print(`<span class="line-muted">Git & GitHub Trainer — емуляція Git Bash (без реального git)</span>`);
+      printResult("Почни з розділу Git Bash", `
+        <span class="line-cmd">ls</span> · <span class="line-cmd">pwd</span> · <span class="line-cmd">git status</span><br>
+        <span class="line-muted">7 розділів курсу · кнопка «Обрати сценарій»</span>
+      `, "ok", "Тренажер базується на курсі Nikita Tymoshenko (YouTube 9CnZihyYjjA).");
+      flushView("$ · Git Bash емулятор");
+    }
+
+    function requireGit() {
+      if (!state.repo.initialized) {
+        printResult("Помилка", `<span class="line-err">fatal: not a git repository</span><br><span class="line-muted">Спочатку: git init</span>`, "warn");
+        return false;
+      }
+      return true;
+    }
+
+    function handleCommand(cmd) {
+      const lower = cmd.toLowerCase();
+      const r = state.repo;
+
+      if (!isInCurrentModule(cmd)) {
+        const owner = findModuleForCommand(cmd);
+        if (owner && owner !== state.currentModule) {
+          printResult("Команда з іншого розділу", `
+            <span class="line-muted">«${esc(cmd)}» — розділ <span class="line-hl">${esc(MODULES[owner].title)}</span></span><br>
+            Клікни розділ зліва або «Обрати сценарій».
+          `, "warn", "Перейди в потрібний розділ курсу.");
+          return false;
+        }
+      }
+
+      const hint = UK_HINTS[normalizeCmd(cmd)] || UK_HINTS[cmd.split(" ")[0]];
+
+      // Bash
+      if (lower === "ls") {
+        const names = Object.keys(r.files).length ? Object.keys(r.files).join("  ") : "README.md  notes.txt";
+        printResult("ls", `<span class="line-ok">${esc(names)}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower === "pwd") {
+        printResult("pwd", `<span class="line-ok">${esc(state.cwd)}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower.startsWith("cd ")) {
+        printResult("cd", `<span class="line-ok">→ ${esc(cmd.slice(3))}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower.startsWith("mkdir ")) {
+        printResult("mkdir", `<span class="line-ok">✓ Створено папку ${esc(cmd.slice(6))}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower === "touch" || lower.startsWith("touch ")) {
+        const f = lower === "touch" ? "file.txt" : cmd.slice(6).trim();
+        r.files[f] = r.files[f] || { content: "", tracked: r.initialized };
+        if (r.initialized) r.files[f].tracked = true;
+        printResult("touch", `<span class="line-ok">✓ ${esc(f)}</span>`, "ok", hint || UK_HINTS.touch);
+        return true;
+      }
+      if (lower === "clear") {
+        welcome();
+        return true;
+      }
+      if (lower.startsWith("cp ")) {
+        printResult("cp", `<span class="line-ok">✓ Скопійовано</span>`, "ok", hint);
+        return true;
+      }
+      if (lower.startsWith("rm ")) {
+        const f = cmd.slice(3).trim();
+        delete r.files[f];
+        printResult("rm", `<span class="line-ok">✓ Видалено ${esc(f)}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower.startsWith("grep ")) {
+        printResult("grep", `<span class="line-muted">ERROR: demo log line</span>`, "ok", hint);
+        return true;
+      }
+
+      // Git setup
+      if (lower === "git --version") {
+        printResult("git --version", `<span class="line-ok">git version 2.43.0 (emulator)</span>`, "ok", hint);
+        return true;
+      }
+      if (lower.startsWith("git config --global user.name")) {
+        const m = cmd.match(/user\.name\s+(.+)/);
+        r.userName = m ? m[1].replace(/^"|"$/g, "") : "User";
+        printResult("git config", `<span class="line-ok">✓ user.name = ${esc(r.userName)}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower.startsWith("git config --global user.email")) {
+        const m = cmd.match(/user\.email\s+(.+)/);
+        r.userEmail = m ? m[1].replace(/^"|"$/g, "") : "user@email.com";
+        printResult("git config", `<span class="line-ok">✓ user.email = ${esc(r.userEmail)}</span>`, "ok", hint);
+        return true;
+      }
+      if (lower === "git config --list") {
+        printResult("git config --list", `
+          <span class="line-muted">user.name=${esc(r.userName || "не задано")}</span><br>
+          <span class="line-muted">user.email=${esc(r.userEmail || "не задано")}</span>
+        `, "ok", hint);
+        return true;
+      }
+      if (lower === "git init" || lower === "git init --initial-branch=main") {
+        r.initialized = true;
+        r.branch = "main";
+        printResult("git init", `
+          <span class="line-ok">Initialized empty Git repository in ${esc(state.cwd)}/.git/</span><br>
+          <span class="line-muted">branch: main</span>
+        `, "ok", hint);
+        return true;
+      }
+      if (lower === "git --help") {
+        printResult("git --help", `
+          <span class="line-cmd">init</span> <span class="line-cmd">add</span> <span class="line-cmd">commit</span>
+          <span class="line-cmd">status</span> <span class="line-cmd">log</span> <span class="line-cmd">branch</span>
+          <span class="line-cmd">checkout</span> <span class="line-cmd">merge</span> <span class="line-cmd">push</span>
+        `, "ok", hint);
+        return true;
+      }
+
+      if (!requireGit() && lower.startsWith("git ")) return false;
+
+      if (lower === "git status") {
+        const unstaged = Object.keys(r.files).filter(f => !r.staged.has(f));
+        const staged = [...r.staged];
+        printResult("git status", `
+          <span class="line-hl">On branch ${esc(r.branch)}</span><br>
+          ${staged.length ? `<span class="line-ok">Changes to be committed:</span><br>${staged.map(f => `  ${esc(f)}`).join("<br>")}<br>` : ""}
+          ${unstaged.length ? `<span class="line-warn">Untracked/Modified:</span><br>${unstaged.map(f => `  ${esc(f)}`).join("<br>")}` : `<span class="line-muted">nothing to commit, working tree clean</span>`}
+        `, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git add file.txt" || lower === "git add .") {
+        const toAdd = lower === "git add ." ? Object.keys(r.files) : ["file.txt"];
+        toAdd.forEach(f => { if (!r.files[f]) r.files[f] = { content: "", tracked: true }; r.staged.add(f); });
+        printResult("git add", `<span class="line-ok">✓ Staged: ${toAdd.join(", ") || "file.txt"}</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower.startsWith("git commit -m")) {
+        const msgM = cmd.match(/-m\s+("([^"]*)"|'([^']*)'|(\S+))/);
+        const msg = msgM ? (msgM[2] || msgM[3] || msgM[4] || "message") : "message";
+        const hash = shortHash();
+        r.commits.push({ hash, msg, branch: r.branch });
+        r.staged.clear();
+        printResult("git commit", `
+          <span class="line-ok">[${esc(r.branch)} ${esc(hash)}] ${esc(msg)}</span><br>
+          <span class="line-muted">${r.commits.length} commit(s)</span>
+        `, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git log") {
+        const lines = r.commits.length
+          ? r.commits.map(c => `commit ${c.hash}<br>    ${esc(c.msg)}`).join("<br><br>")
+          : `<span class="line-muted">(no commits yet)</span>`;
+        printResult("git log", lines, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git log --oneline") {
+        const lines = r.commits.length
+          ? r.commits.map(c => `<span class="line-ok">${esc(c.hash.slice(0,7))}</span> ${esc(c.msg)}`).join("<br>")
+          : `<span class="line-muted">(no commits)</span>`;
+        printResult("git log --oneline", lines, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git diff" || lower === "git diff --cached") {
+        printResult(lower, `
+          <span class="line-muted">diff --git a/file.txt b/file.txt</span><br>
+          <span class="line-ok">+demo change line</span>
+        `, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git commit --amend --no-edit") {
+        if (r.commits.length) r.commits[r.commits.length - 1].hash = shortHash();
+        printResult("git commit --amend", `<span class="line-ok">✓ Last commit amended</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git restore --staged file.txt") {
+        r.staged.delete("file.txt");
+        printResult("git restore --staged", `<span class="line-ok">✓ Unstaged file.txt</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git restore file.txt" || lower === "git restore .") {
+        printResult("git restore", `<span class="line-ok">✓ Working tree restored</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git rm file.txt") {
+        delete r.files["file.txt"];
+        r.staged.delete("file.txt");
+        printResult("git rm", `<span class="line-ok">✓ rm 'file.txt'</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower.startsWith("git show")) {
+        const c = r.commits[0] || { hash: "abc123", msg: "demo" };
+        printResult("git show", `
+          <span class="line-hl">commit ${esc(c.hash)}</span><br>
+          <span class="line-muted">Author: ${esc(r.userName || "User")}</span><br>
+          <span class="line-ok">    ${esc(c.msg)}</span>
+        `, "ok", hint);
+        return true;
+      }
+
+      if (lower.startsWith("git reset")) {
+        printResult("git reset", `<span class="line-ok">✓ HEAD updated (emulated)</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git clean -f") {
+        printResult("git clean", `<span class="line-ok">✓ Removed untracked files (emulated)</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git branch") {
+        const list = [...r.branches].map(b => b === r.branch ? `<span class="line-ok">* ${esc(b)}</span>` : `  ${esc(b)}`).join("<br>");
+        printResult("git branch", list || `<span class="line-ok">* main</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git branch feature") {
+        r.branches.add("feature");
+        printResult("git branch feature", `<span class="line-ok">✓ Branch 'feature' created</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git checkout feature") {
+        if (!r.branches.has("feature")) r.branches.add("feature");
+        r.branch = "feature";
+        printResult("git checkout", `<span class="line-ok">Switched to branch 'feature'</span>`, "ok", hint);
+        updateTermTitle();
+        return true;
+      }
+
+      if (lower === "git checkout -b new_branch") {
+        r.branches.add("new_branch");
+        r.branch = "new_branch";
+        printResult("git checkout -b", `<span class="line-ok">Switched to a new branch 'new_branch'</span>`, "ok", hint);
+        updateTermTitle();
+        return true;
+      }
+
+      if (lower === "git merge feature") {
+        printResult("git merge", `
+          <span class="line-ok">Merge made by the 'ort' strategy.</span><br>
+          <span class="line-muted">feature → ${esc(r.branch)}</span>
+        `, "ok", hint);
+        return true;
+      }
+
+      if (lower.startsWith("git branch -d")) {
+        r.branches.delete("feature");
+        printResult("git branch -d", `<span class="line-ok">Deleted branch feature</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "ssh -t git@github.com") {
+        r.sshOk = true;
+        printResult("ssh -T", `<span class="line-ok">Hi StsZu! You've successfully authenticated (emulated).</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git remote -v") {
+        printResult("git remote -v", r.remote
+          ? `<span class="line-ok">origin  ${esc(r.remote)} (fetch/push)</span>`
+          : `<span class="line-muted">(no remotes)</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower.startsWith("git remote add origin")) {
+        r.remote = cmd.match(/git@github\.com:.+/)?.[0] || "git@github.com:user/repo.git";
+        printResult("git remote add", `<span class="line-ok">✓ origin → ${esc(r.remote)}</span>`, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git push -u origin main") {
+        printResult("git push", `
+          <span class="line-ok">Enumerating objects: 3, done.</span><br>
+          <span class="line-ok">To ${esc(r.remote || "github.com:user/repo.git")}</span><br>
+          <span class="line-ok"> * [new branch] main -> main</span>
+        `, "ok", hint);
+        return true;
+      }
+
+      if (lower === "git pull --rebase origin main") {
+        printResult("git pull --rebase", `<span class="line-ok">✓ Successfully rebased and updated refs/heads/main</span>`, "ok", hint);
+        return true;
+      }
+
+      printResult("Невідома команда", `
+        <span class="line-muted">«${esc(cmd)}» — немає в розділі «${esc(getModule().title)}»</span>
+      `, "warn");
+      return false;
+    }
+
+    function execute(raw) {
+      const cmd = raw.trim();
+      if (!cmd) return;
+
+      if (state.testMode.active) { handleTestAnswer(cmd); return; }
+
+      state.history.push(cmd);
+      state.histIdx = state.history.length;
+      beginView(cmd);
+      const ok = handleCommand(cmd);
+      flushView(`$ · ${getModule().title} · ${cmd}`);
+      if (ok !== false) markTried(cmd);
+    }
+
+    // Test mode
+    function shuffleArray(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function buildTestQueue() {
+      const seen = new Set(), items = [];
+      for (const mod of Object.values(MODULES)) {
+        for (const c of mod.commands) {
+          if (!seen.has(c) && UK_HINTS[c]) { seen.add(c); items.push({ cmd: c, hint: UK_HINTS[c] }); }
+        }
+      }
+      return shuffleArray(items);
+    }
+
+    function updateTestButton() {
+      const btn = document.getElementById("btnTest");
+      btn.textContent = state.testMode.active ? "Зупинити тест" : "Режим тестування";
+      btn.classList.toggle("active", state.testMode.active);
+    }
+
+    function showTestQuestion() {
+      const tm = state.testMode;
+      const q = tm.queue[tm.index];
+      if (!q) { finishTestMode(); return; }
+      beginView(null);
+      printResult(`Питання ${tm.index + 1} / ${tm.queue.length}`, `
+        <div class="test-question">${esc(q.hint)}</div>
+        <span class="line-hl">Яка це команда?</span><br>
+        <span class="line-muted">Введи команду (напр. <span class="line-cmd">git status</span>)</span>
+      `, "purple");
+      flushView(`test> · ${tm.index + 1}/${tm.queue.length}`);
+      cmdInput.placeholder = "Введи команду…";
+      cmdInput.focus();
+    }
+
+    function startTestMode() {
+      closeScenarioModal();
+      state.testMode = { active: true, queue: buildTestQueue(), index: 0, correct: 0, wrong: 0 };
+      updateTestButton();
+      showTestQuestion();
+    }
+
+    function stopTestMode() {
+      if (!state.testMode.active) return;
+      state.testMode.active = false;
+      updateTestButton();
+      cmdInput.placeholder = "git status, ls, pwd …";
+      beginView(null);
+      printResult("Тест зупинено", `
+        <span class="line-ok">✓ ${state.testMode.correct}</span> · <span class="line-err">✗ ${state.testMode.wrong}</span>
+      `, "warn");
+      flushView("$ · тест зупинено");
+    }
+
+    function finishTestMode() {
+      const tm = state.testMode;
+      const pct = tm.queue.length ? Math.round((tm.correct / tm.queue.length) * 100) : 0;
+      tm.active = false;
+      updateTestButton();
+      cmdInput.placeholder = "git status, ls, pwd …";
+      beginView(null);
+      printResult("Тест завершено!", `
+        <span class="line-ok">✓ ${tm.correct} / ${tm.queue.length}</span> · <span class="line-err">✗ ${tm.wrong}</span><br>
+        <span class="line-hl">${pct}%</span>
+      `, pct >= 70 ? "ok" : "warn");
+      flushView(`$ · тест ${pct}%`);
+    }
+
+    function handleTestAnswer(cmd) {
+      const tm = state.testMode;
+      const q = tm.queue[tm.index];
+      if (!q) return;
+      beginView(cmd);
+      if (cmd.trim().toLowerCase() === q.cmd.toLowerCase()) {
+        tm.correct++;
+        tm.index++;
+        printResult("Правильно!", `<span class="line-ok">✓ ${esc(q.cmd)}</span>`, "ok");
+        flushView(`test> · ✓ ${tm.correct}`);
+        setTimeout(showTestQuestion, 450);
+      } else {
+        tm.wrong++;
+        printResult("Неправильно", `
+          <span class="line-err">✗ ${esc(cmd)}</span><br>
+          <span class="line-ok">Правильно: ${esc(q.cmd)}</span>
+        `, "warn");
+        flushView("test> · спробуй знову");
+      }
+    }
+
+    // Scenario modal
+    function openScenarioModal() {
+      const list = document.getElementById("scenarioList");
+      state.selectedScenario = SCENARIOS.find(s => s.moduleId === state.currentModule) || SCENARIOS[0];
+      list.innerHTML = SCENARIOS.map(s => `
+        <div class="scenario-item ${state.selectedScenario.id === s.id ? "selected" : ""}" data-id="${s.id}">
+          ${esc(s.title)}
+          <small>${esc(s.desc)} · ${s.commands} команд</small>
+        </div>
+      `).join("");
+      list.querySelectorAll(".scenario-item").forEach(el => {
+        el.addEventListener("click", () => {
+          state.selectedScenario = SCENARIOS.find(x => x.id === +el.dataset.id);
+          list.querySelectorAll(".scenario-item").forEach(i => i.classList.remove("selected"));
+          el.classList.add("selected");
+        });
+      });
+      document.getElementById("scenarioModal").classList.add("open");
+    }
+
+    function closeScenarioModal() {
+      document.getElementById("scenarioModal").classList.remove("open");
+    }
+
+    function confirmScenario() {
+      if (!state.selectedScenario) return;
+      closeScenarioModal();
+      switchModule(state.selectedScenario.moduleId, false);
+      beginView(null);
+      const m = getModule();
+      printResult(`Сценарій: ${m.title}`, `
+        <span class="line-ok">✓ ${esc(state.selectedScenario.desc)}</span><br>
+        ${m.commands.slice(0, 4).map(c => `<span class="line-cmd">${esc(c)}</span>`).join(" · ")}
+      `, "purple", "Проходь команди зі списку зліва.");
+      flushView(`$ · ${m.title}`);
+    }
+
+    function getCompletions() {
+      return [...getCurrentCommands(), "git status", "git log", "ls", "pwd"];
+    }
+
+    document.getElementById("cmdForm").addEventListener("submit", e => {
+      e.preventDefault();
+      execute(cmdInput.value);
+      cmdInput.value = "";
+    });
+
+    cmdInput.addEventListener("keydown", e => {
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (state.history.length) {
+          state.histIdx = Math.max(0, state.histIdx - 1);
+          cmdInput.value = state.history[state.histIdx] || "";
+        }
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (state.histIdx < state.history.length - 1) {
+          state.histIdx++;
+          cmdInput.value = state.history[state.histIdx] || "";
+        } else { state.histIdx = state.history.length; cmdInput.value = ""; }
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const val = cmdInput.value;
+        const match = getCompletions().find(c => c.startsWith(val) && c !== val);
+        if (match) cmdInput.value = match;
+      }
+    });
+
+    document.getElementById("btnTest").addEventListener("click", () => {
+      state.testMode.active ? stopTestMode() : startTestMode();
+    });
+    document.getElementById("btnScenario").addEventListener("click", openScenarioModal);
+    document.getElementById("btnReset").addEventListener("click", () => {
+      if (state.testMode.active) stopTestMode();
+      resetRepo();
+      Object.keys(state.triedByModule).forEach(k => state.triedByModule[k].clear());
+      state.currentModule = "bash";
+      welcome();
+      buildChecklist();
+    });
+    document.getElementById("scenarioConfirm").addEventListener("click", confirmScenario);
+    document.getElementById("scenarioCancel").addEventListener("click", closeScenarioModal);
+    document.getElementById("scenarioModal").addEventListener("click", e => {
+      if (e.target.id === "scenarioModal") closeScenarioModal();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") {
+        if (state.testMode.active) stopTestMode();
+        else closeScenarioModal();
+      }
+    });
+
+    welcome();
+    buildChecklist();
+  </script>
+</body>
+</html>
