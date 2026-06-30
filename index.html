@@ -363,6 +363,44 @@
       }
     };
 
+    const BASH_COMMANDS = new Set(["ls", "pwd", "cd", "mkdir", "touch", "clear", "cp", "rm", "grep"]);
+
+    function commandBase(cmd) {
+      const lower = cmd.trim().toLowerCase();
+      if (lower.startsWith("git ")) return lower.split(/\s+/).slice(0, 3).join(" ");
+      return lower.split(/\s+/)[0];
+    }
+
+    function normalizeGitCmd(cmd) {
+      return cmd.trim().toLowerCase()
+        .replace(/"[^"]*"/g, '"message"')
+        .replace(/'[^']*'/g, "'message'")
+        .replace(/\s+/g, " ");
+    }
+
+    function matchesListedCommand(cmd, listed) {
+      const lower = cmd.trim().toLowerCase();
+      const l = listed.toLowerCase();
+      if (lower === l) return true;
+      const base = commandBase(cmd);
+      if (BASH_COMMANDS.has(base) && l === base) return true;
+      if (!lower.startsWith("git ") || !l.startsWith("git ")) return false;
+      if (normalizeGitCmd(lower) === normalizeGitCmd(l)) return true;
+      const cmdSub = lower.split(/\s+/).slice(0, 2).join(" ");
+      const listSub = l.split(/\s+/).slice(0, 2).join(" ");
+      const bySub = ["git status", "git log", "git diff", "git branch", "git merge",
+        "git init", "git --version", "git --help", "git clean", "git rm", "git show"];
+      if (bySub.includes(listSub) && cmdSub === listSub) return true;
+      const prefixMatch = ["git add", "git commit", "git config", "git restore",
+        "git reset", "git remote", "git checkout", "git push", "git pull"];
+      if (prefixMatch.includes(listSub) && lower.startsWith(listSub)) return true;
+      return lower.startsWith(l);
+    }
+
+    function findListedCommand(cmd, commands) {
+      return commands.find(x => matchesListedCommand(cmd, x)) || null;
+    }
+
     const SCENARIOS = Object.values(MODULES).map((m, i) => ({
       id: i + 1, moduleId: m.id, title: m.title,
       desc: m.intro, commands: m.commands.length
@@ -442,31 +480,33 @@
 
     function normalizeCmd(raw) {
       const c = raw.trim();
-      const lower = c.toLowerCase();
-      const cur = getCurrentCommands().find(x => x.toLowerCase() === lower);
+      const cur = findListedCommand(c, getCurrentCommands());
       if (cur) return cur;
       for (const mod of Object.values(MODULES)) {
-        const ex = mod.commands.find(x => x.toLowerCase() === lower);
+        const ex = findListedCommand(c, mod.commands);
         if (ex) return ex;
       }
       return c;
     }
 
     function isInCurrentModule(cmd) {
-      return getCurrentCommands().some(x => x.toLowerCase() === cmd.trim().toLowerCase());
+      return !!findListedCommand(cmd, getCurrentCommands());
+    }
+
+    function isBashCommand(cmd) {
+      return BASH_COMMANDS.has(commandBase(cmd));
     }
 
     function findModuleForCommand(cmd) {
-      const lower = cmd.trim().toLowerCase();
       for (const mod of Object.values(MODULES)) {
-        if (mod.commands.some(x => x.toLowerCase() === lower)) return mod.id;
+        if (findListedCommand(cmd, mod.commands)) return mod.id;
       }
       return null;
     }
 
     function markTried(cmd) {
-      const norm = normalizeCmd(cmd);
-      if (getCurrentCommands().includes(norm)) {
+      const norm = findListedCommand(cmd, getCurrentCommands());
+      if (norm) {
         getTried().add(norm);
         updateProgress();
         updateModuleNav();
@@ -541,30 +581,18 @@
       flushView("$ · Git Bash емулятор");
     }
 
-    function requireGit() {
-      if (!state.repo.initialized) {
-        printResult("Помилка", `<span class="line-err">fatal: not a git repository</span><br><span class="line-muted">Спочатку: git init</span>`, "warn");
-        return false;
-      }
-      return true;
-    }
-
     function handleCommand(cmd) {
       const lower = cmd.toLowerCase();
       const r = state.repo;
+      const listed = normalizeCmd(cmd);
+      const hint = UK_HINTS[listed] || UK_HINTS[commandBase(cmd)] || UK_HINTS[cmd.split(" ")[0]];
 
-      if (!isInCurrentModule(cmd)) {
+      if (!isInCurrentModule(cmd) && !isBashCommand(cmd)) {
         const owner = findModuleForCommand(cmd);
         if (owner && owner !== state.currentModule) {
-          printResult("Команда з іншого розділу", `
-            <span class="line-muted">«${esc(cmd)}» — розділ <span class="line-hl">${esc(MODULES[owner].title)}</span></span><br>
-            Клікни розділ зліва або «Обрати сценарій».
-          `, "warn", "Перейди в потрібний розділ курсу.");
-          return false;
+          print(`<span class="line-warn">⚠ «${esc(cmd)}» — зазвичай у розділі «${esc(MODULES[owner].title)}» (прогрес цього розділу не зарахується)</span>`);
         }
       }
-
-      const hint = UK_HINTS[normalizeCmd(cmd)] || UK_HINTS[cmd.split(" ")[0]];
 
       // Bash
       if (lower === "ls") {
@@ -576,12 +604,22 @@
         printResult("pwd", `<span class="line-ok">${esc(state.cwd)}</span>`, "ok", hint);
         return true;
       }
-      if (lower.startsWith("cd ")) {
-        printResult("cd", `<span class="line-ok">→ ${esc(cmd.slice(3))}</span>`, "ok", hint);
+      if (lower === "cd" || lower.startsWith("cd ")) {
+        const target = lower === "cd" ? "~" : cmd.slice(3).trim();
+        if (target === "~" || target === "") state.cwd = "~/demo-project";
+        else if (target === "..") state.cwd = "~/demo-project";
+        else state.cwd = `~/demo-project/${target.replace(/\/$/, "")}`;
+        updateTermTitle();
+        printResult("cd", `<span class="line-ok">→ ${esc(state.cwd)}</span>`, "ok", hint || UK_HINTS.cd);
         return true;
       }
-      if (lower.startsWith("mkdir ")) {
-        printResult("mkdir", `<span class="line-ok">✓ Створено папку ${esc(cmd.slice(6))}</span>`, "ok", hint);
+      if (lower === "mkdir" || lower.startsWith("mkdir ")) {
+        const dir = lower === "mkdir" ? "new-folder" : cmd.slice(6).trim();
+        if (!dir) {
+          printResult("mkdir", `<span class="line-muted">usage: mkdir &lt;directory&gt;</span>`, "warn", UK_HINTS.mkdir);
+          return true;
+        }
+        printResult("mkdir", `<span class="line-ok">✓ Створено папку ${esc(dir)}</span>`, "ok", hint || UK_HINTS.mkdir);
         return true;
       }
       if (lower === "touch" || lower.startsWith("touch ")) {
@@ -595,18 +633,28 @@
         welcome();
         return true;
       }
-      if (lower.startsWith("cp ")) {
-        printResult("cp", `<span class="line-ok">✓ Скопійовано</span>`, "ok", hint);
+      if (lower === "cp" || lower.startsWith("cp ")) {
+        const args = lower === "cp" ? "" : cmd.slice(3).trim();
+        if (!args) {
+          printResult("cp", `<span class="line-muted">usage: cp &lt;source&gt; &lt;dest&gt;</span>`, "warn", UK_HINTS.cp);
+          return true;
+        }
+        printResult("cp", `<span class="line-ok">✓ Скопійовано ${esc(args)}</span>`, "ok", hint || UK_HINTS.cp);
         return true;
       }
-      if (lower.startsWith("rm ")) {
-        const f = cmd.slice(3).trim();
+      if (lower === "rm" || lower.startsWith("rm ")) {
+        const f = lower === "rm" ? "" : cmd.slice(3).trim();
+        if (!f) {
+          printResult("rm", `<span class="line-muted">usage: rm &lt;file&gt;</span>`, "warn", UK_HINTS.rm);
+          return true;
+        }
         delete r.files[f];
-        printResult("rm", `<span class="line-ok">✓ Видалено ${esc(f)}</span>`, "ok", hint);
+        printResult("rm", `<span class="line-ok">✓ Видалено ${esc(f)}</span>`, "ok", hint || UK_HINTS.rm);
         return true;
       }
-      if (lower.startsWith("grep ")) {
-        printResult("grep", `<span class="line-muted">ERROR: demo log line</span>`, "ok", hint);
+      if (lower === "grep" || lower.startsWith("grep ")) {
+        const pat = lower === "grep" ? "ERROR" : cmd.slice(5).trim();
+        printResult("grep", `<span class="line-muted">${esc(pat || "pattern")}: demo log line</span>`, "ok", hint || UK_HINTS.grep);
         return true;
       }
 
@@ -652,9 +700,14 @@
         return true;
       }
 
-      if (!requireGit() && lower.startsWith("git ")) return false;
-
-      if (lower === "git status") {
+      if (lower === "git status" || lower.startsWith("git status")) {
+        if (!r.initialized) {
+          printResult("git status", `
+            <span class="line-err">fatal: not a git repository (or any of the parent directories): .git</span><br>
+            <span class="line-muted">Спочатку: <span class="line-cmd">git init</span> (розділ «Налаштування Git»)</span>
+          `, "warn", hint || UK_HINTS["git status"]);
+          return true;
+        }
         const unstaged = Object.keys(r.files).filter(f => !r.staged.has(f));
         const staged = [...r.staged];
         printResult("git status", `
@@ -665,7 +718,15 @@
         return true;
       }
 
-      if (lower === "git add file.txt" || lower === "git add .") {
+      if (!r.initialized && lower.startsWith("git ") && lower !== "git --version" && !lower.startsWith("git config") && !lower.startsWith("git init") && !lower.startsWith("git --help")) {
+        printResult("Помилка", `
+          <span class="line-err">fatal: not a git repository</span><br>
+          <span class="line-muted">Спочатку: <span class="line-cmd">git init</span></span>
+        `, "warn", UK_HINTS["git init"]);
+        return true;
+      }
+
+      if (lower === "git add file.txt" || lower === "git add ." || lower.startsWith("git add ")) {
         const toAdd = lower === "git add ." ? Object.keys(r.files) : ["file.txt"];
         toAdd.forEach(f => { if (!r.files[f]) r.files[f] = { content: "", tracked: true }; r.staged.add(f); });
         printResult("git add", `<span class="line-ok">✓ Staged: ${toAdd.join(", ") || "file.txt"}</span>`, "ok", hint);
@@ -828,9 +889,18 @@
         return true;
       }
 
-      printResult("Невідома команда", `
-        <span class="line-muted">«${esc(cmd)}» — немає в розділі «${esc(getModule().title)}»</span>
-      `, "warn");
+      const owner = findModuleForCommand(cmd);
+      if (owner) {
+        printResult("Команда з іншого розділу", `
+          <span class="line-muted">«${esc(cmd)}» — у розділі <span class="line-hl">${esc(MODULES[owner].title)}</span></span><br>
+          Перейди туди зліва або «Обрати сценарій».
+        `, "warn");
+      } else {
+        printResult("Невідома команда", `
+          <span class="line-muted">«${esc(cmd)}» — не підтримується в емуляторі</span><br>
+          <span class="line-muted">Розділ: «${esc(getModule().title)}» · клікни команду зліва</span>
+        `, "warn");
+      }
       return false;
     }
 
