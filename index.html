@@ -262,8 +262,8 @@
       "rm": "Видаляє файл. rm -r — рекурсивно видаляє папку.",
       "grep": "Шукає текстовий шаблон у файлах (напр. помилки в логах).",
       "git --version": "Перевіряє, чи встановлений Git і яка версія.",
-      "git config --global user.name \"User\"": "Встановлює глобальне ім'я автора комітів (обов'язково для commit).",
-      "git config --global user.email \"user@email.com\"": "Встановлює email автора комітів (обов'язково для commit).",
+      "git config --global user.name \"Ваше Ім'я\"": "Встановлює глобальне ім'я автора комітів (обов'язково для commit).",
+      "git config --global user.email \"your@email.com\"": "Встановлює email автора комітів (обов'язково для commit).",
       "git config --list": "Показує всі налаштування Git, включно з user.name та user.email.",
       "git init": "Ініціалізує новий локальний Git-репозиторій у поточній папці.",
       "git init --initial-branch=main": "Створює репозиторій одразу з гілкою main (сучасний стандарт).",
@@ -310,8 +310,8 @@
         termTitle: "MINGW64 ~/demo-project (не ініціалізовано)",
         intro: "Встановлення, git config, git init — підготовка репозиторію.",
         commands: [
-          "git --version", "git config --global user.name \"User\"",
-          "git config --global user.email \"user@email.com\"",
+          "git --version", "git config --global user.name \"Ваше Ім'я\"",
+          "git config --global user.email \"your@email.com\"",
           "git config --list", "git init --initial-branch=main", "git status", "git --help"
         ]
       },
@@ -378,6 +378,14 @@
         .replace(/\s+/g, " ");
     }
 
+    function gitConfigKind(cmd) {
+      const lower = cmd.trim().toLowerCase();
+      if (lower === "git config --list") return "list";
+      if (lower.includes("user.name")) return "user.name";
+      if (lower.includes("user.email")) return "user.email";
+      return null;
+    }
+
     function matchesListedCommand(cmd, listed) {
       const lower = cmd.trim().toLowerCase();
       const l = listed.toLowerCase();
@@ -388,17 +396,27 @@
       if (normalizeGitCmd(lower) === normalizeGitCmd(l)) return true;
       const cmdSub = lower.split(/\s+/).slice(0, 2).join(" ");
       const listSub = l.split(/\s+/).slice(0, 2).join(" ");
+      if (cmdSub === "git config" && listSub === "git config") {
+        const ck = gitConfigKind(cmd);
+        const lk = gitConfigKind(listed);
+        return !!(ck && lk && ck === lk);
+      }
       const bySub = ["git status", "git log", "git diff", "git branch", "git merge",
         "git init", "git --version", "git --help", "git clean", "git rm", "git show"];
       if (bySub.includes(listSub) && cmdSub === listSub) return true;
-      const prefixMatch = ["git add", "git commit", "git config", "git restore",
+      const prefixMatch = ["git add", "git commit", "git restore",
         "git reset", "git remote", "git checkout", "git push", "git pull"];
       if (prefixMatch.includes(listSub) && lower.startsWith(listSub)) return true;
-      return lower.startsWith(l);
+      return lower.startsWith(l + " ");
     }
 
     function findListedCommand(cmd, commands) {
-      return commands.find(x => matchesListedCommand(cmd, x)) || null;
+      const lower = cmd.trim().toLowerCase();
+      const exact = commands.find(x => x.trim().toLowerCase() === lower);
+      if (exact) return exact;
+      const matches = commands.filter(x => matchesListedCommand(cmd, x));
+      if (!matches.length) return null;
+      return matches.sort((a, b) => b.length - a.length)[0];
     }
 
     const SCENARIOS = Object.values(MODULES).map((m, i) => ({
@@ -663,19 +681,19 @@
         printResult("git --version", `<span class="line-ok">git version 2.43.0 (emulator)</span>`, "ok", hint);
         return true;
       }
-      if (lower.startsWith("git config --global user.name")) {
+      if (lower.includes("git config") && lower.includes("user.name")) {
         const m = cmd.match(/user\.name\s+(.+)/);
-        r.userName = m ? m[1].replace(/^"|"$/g, "") : "User";
+        r.userName = m ? m[1].replace(/^"|"$/g, "") : "Ваше Ім'я";
         printResult("git config", `<span class="line-ok">✓ user.name = ${esc(r.userName)}</span>`, "ok", hint);
         return true;
       }
-      if (lower.startsWith("git config --global user.email")) {
+      if (lower.includes("git config") && lower.includes("user.email")) {
         const m = cmd.match(/user\.email\s+(.+)/);
-        r.userEmail = m ? m[1].replace(/^"|"$/g, "") : "user@email.com";
+        r.userEmail = m ? m[1].replace(/^"|"$/g, "") : "your@email.com";
         printResult("git config", `<span class="line-ok">✓ user.email = ${esc(r.userEmail)}</span>`, "ok", hint);
         return true;
       }
-      if (lower === "git config --list") {
+      if (lower === "git config --list" || lower.endsWith(" config --list")) {
         printResult("git config --list", `
           <span class="line-muted">user.name=${esc(r.userName || "не задано")}</span><br>
           <span class="line-muted">user.email=${esc(r.userEmail || "не задано")}</span>
@@ -1045,7 +1063,10 @@
       const m = getModule();
       printResult(`Сценарій: ${m.title}`, `
         <span class="line-ok">✓ ${esc(state.selectedScenario.desc)}</span><br>
-        ${m.commands.slice(0, 4).map(c => `<span class="line-cmd">${esc(c)}</span>`).join(" · ")}
+        ${(m.id === "setup"
+          ? ["git --version", "git config --global user.name \"Ваше Ім'я\"", "git init --initial-branch=main"]
+          : m.commands.slice(0, 3)
+        ).map(c => `<span class="line-cmd">${esc(c)}</span>`).join(" · ")}
       `, "purple", "Проходь команди зі списку зліва.");
       flushView(`$ · ${m.title}`);
     }
